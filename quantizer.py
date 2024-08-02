@@ -46,9 +46,9 @@ from utils import (get_block_name_with_pattern, get_device, get_layers,
 from quip import QUIP
 from qlinear import QuantLinear
 from codebook import codebook_id
-
+import logging
 logger = getLogger(__name__)
-
+logger.setLevel(logging.INFO)
 
 class QuipQuantizer(object):
     r"""
@@ -143,7 +143,8 @@ class QuipQuantizer(object):
             "merge_suv": self.merge_suv,
             "per_channel": self.per_channel,
             "opt_resid_scale": self.opt_resid_scale,
-            "modules_to_not_convert": self.modules_to_not_convert
+            "modules_to_not_convert": self.modules_to_not_convert,
+            "block_name_to_quantize": self.block_name_to_quantize,
         }
 
     @classmethod
@@ -174,7 +175,7 @@ class QuipQuantizer(object):
         block_name = self.block_name_to_quantize
         layers_to_be_replaced = get_layers(model, prefix=block_name, skip=self.modules_to_not_convert)
         self._replace_by_quant_layers(model, layers_to_be_replaced)
-
+        
         return model
 
     def get_no_split_module_classes(self, model):
@@ -338,7 +339,6 @@ class QuipQuantizer(object):
                 model, self.block_name_to_quantize)
 
         blocks = recurse_getattr(model, self.block_name_to_quantize)
-
         # put modules from module_name_preceding_first_block on cuda
         for module_name in self.module_name_preceding_first_block:
             module = recurse_getattr(model, module_name)
@@ -445,8 +445,11 @@ class QuipQuantizer(object):
                     ) if not self.cache_on_gpu else layer_inputs[j]
                 layer_input_kwarg = {k: v.to(block_dev
                     ) if not self.cache_on_gpu and isinstance(v, torch.Tensor) else v for k, v in layer_input_kwargs[j].items()}
+                
+                #NOTE(brian1009): Modified. As Mamba block only have 1 outputs. 
                 layer_output = block(layer_input,
-                                     **layer_input_kwarg)[0]
+                                     **layer_input_kwarg)
+
                 layer_outputs.append(layer_output.cpu(
                     ) if not self.cache_on_gpu else layer_output)
             # remove hook
@@ -818,6 +821,7 @@ def load_quantized_model(
     quantize_config_dict["inference"] = True
     quantize_config_dict["ft_epochs"] = 0
     quantizer = QuipQuantizer.from_dict(quantize_config_dict)
+    print(quantizer.block_name_to_quantize)
     quantizer.codebook = quantizer.codebook.to(torch_dtype)
 
     model = quantizer.convert_model(model)
@@ -831,7 +835,7 @@ def load_quantized_model(
         no_split_module_classes=quantizer.get_no_split_module_classes(model),
         dtype=torch_dtype,
     )
-
+    print(model_weights_path)
     # Trick for better performance
     for layer in get_layers(model, [QuantLinear]).values():
         layer.wscale_float = layer.Wscale.mean().float().item()

@@ -13,6 +13,22 @@ Please install the cuda kernel in the `quip_cuda` folder.
 python setup_cuda.py install
 ```
 
+### How to use Quip with Mamba
+Quantized the models uning the example_mamba.py script. The script will quantize the model and save the quantized model to the specified directory. 
+
+```python
+CUDA_VISIBLE_DEVICES=1 python example_mamba.py \
+    --nsamples 32 \
+    --quant_dir mamba_2.8b_2bit_quip
+```
+After finishing, quantized model weights will be save into `mamba_2.8b_2bit_quip` directory.
+Then, we can use the evaluation script to evaluate the quantized model.
+
+```python
+CUDA_VISIBLE_DEVICES= python inference_mamba.py --quant_dir mamba_2.8b_2bit_quip
+--task_list "lambada_openai,hellaswag,arc_easy,arc_challenge,piqa,winogrande"
+```
+
 ### Quantize
 
 Please refer to the [author's blog](https://cornell-relaxml.github.io/quip-sharp/) for introduction of quip# algorithm.
