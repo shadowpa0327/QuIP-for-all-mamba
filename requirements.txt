@@ -1,5 +1,5 @@
-transformers
-accelerate
-torch
-datasets
+transformers==4.40.1
+accelerate==0.31.0
+torch==2.1.2
+datasets==2.20.0
 fast-hadamard-transform
